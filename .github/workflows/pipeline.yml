@@ -13,6 +13,11 @@ jobs:
     steps:
       - name: Checkout du code
         uses: actions/checkout@v4
+      
+      - name: Run Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: --verbose --redact --exit-code 1
 
       - name: Build de l'image Docker
         run: docker build -t juice-shop:latest .
