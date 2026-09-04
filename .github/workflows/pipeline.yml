@@ -45,3 +45,6 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
+      
+      - name: SCA - Audit des dépendances npm
+        run: npm audit --audit-level=high || true
