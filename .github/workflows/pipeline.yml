@@ -90,7 +90,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Scan de compliance CIS Docker (résumé lisible)
         run: |
-          trivy image --compliance docker-cis --report summary --exit-code 0 ${{ env.IMAGE_NAME }}
+          trivy image --compliance docker-cis-1.6.0 --report summary --exit-code 0 ${{ env.IMAGE_NAME }}
 
       - name: Scan de compliance CIS Docker (JSON complet)
         run: |
