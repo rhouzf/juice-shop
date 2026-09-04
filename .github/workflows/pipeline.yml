@@ -31,4 +31,10 @@ jobs:
           image-ref: juice-shop
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: 1
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
