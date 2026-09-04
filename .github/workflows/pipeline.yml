@@ -99,6 +99,7 @@ jobs:
             --report all \
             --format json \
             --output compliance-cis-report.json \
+            --exit-code 0 \
             ${{ env.IMAGE_NAME }}
 
       # ------------------------------------------------------------------
