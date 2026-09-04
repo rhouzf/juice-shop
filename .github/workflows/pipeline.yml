@@ -24,3 +24,11 @@ jobs:
 
       - name: Vérifier que l'image existe
         run: docker images | grep juice-shop
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: juice-shop
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
