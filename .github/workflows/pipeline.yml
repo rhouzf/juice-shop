@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI Pipeline - DevSecOps
 
 on:
   push:
@@ -11,6 +11,9 @@ permissions:
   contents: read
   security-events: write
 
+env:
+  TRIVY_VERSION: "v0.69.3"          # Version épinglée suite à l'incident de sécurité
+  IMAGE_NAME: "juice-shop:latest"    # sur trivy-action (avril 2026) 
 
 jobs:
   build:
@@ -19,32 +22,106 @@ jobs:
     steps:
       - name: Checkout du code
         uses: actions/checkout@v4
-      
-#      - name: Run Gitleaks secret scan
-#        uses: gitleaks/gitleaks-action@v2
-#        with:
-#          args: --verbose --redact --exit-code 1
+        with:
+          fetch-depth: 0   # historique complet nécessaire pour Gitleaks
 
+      # ------------------------------------------------------------------
+      # 1. SECRET SCANNING
+      # ------------------------------------------------------------------
+      - name: Run Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: --verbose --redact --exit-code 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ------------------------------------------------------------------
+      # 2. BUILD
+      # ------------------------------------------------------------------
       - name: Build de l'image Docker
-        run: docker build -t juice-shop:latest .
+        run: docker build -t ${{ env.IMAGE_NAME }} .
 
       - name: Vérifier que l'image existe
         run: docker images | grep juice-shop
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: juice-shop
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          format: sarif
-          output: trivy-results.sarif
-          exit-code: 0   # évite de bloquer le pipeline
+      # ------------------------------------------------------------------
+      # 3. INSTALLATION DE TRIVY (version épinglée, pas @master)
+      # ------------------------------------------------------------------
+      - name: Installer Trivy CLI
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/${{ env.TRIVY_VERSION }}/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin ${{ env.TRIVY_VERSION }}
+          trivy --version
+
+      # ------------------------------------------------------------------
+      # 4. SCAN DE VULNÉRABILITÉS (SARIF pour GitHub Security tab)
+      # ------------------------------------------------------------------
+      - name: Scan de vulnérabilités (SARIF)
+        run: |
+          trivy image \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --format sarif \
+            --output trivy-results.sarif \
+            --exit-code 0 \
+            ${{ env.IMAGE_NAME }}
+          # exit-code 0 = mode "reporting only" (Phase 1).
+          # Phase 2 prévue : passer à 1 une fois la baseline de vulnérabilités connues traitée.
 
       - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
-      
-      - name: SCA - Audit des dépendances npm
+
+      # ------------------------------------------------------------------
+      # 5. SCAN DE VULNÉRABILITÉS (JSON brut, pour le rapport de compliance)
+      # ------------------------------------------------------------------
+      - name: Scan de vulnérabilités (JSON)
+        run: |
+          trivy image \
+            --severity CRITICAL,HIGH \
+            --format json \
+            --output trivy-report.json \
+            --exit-code 0 \
+            ${{ env.IMAGE_NAME }}
+
+      # ------------------------------------------------------------------
+      # 6. COMPLIANCE - CIS Docker Community Edition Benchmark
+      # ------------------------------------------------------------------
+      - name: Scan de compliance CIS Docker (résumé lisible)
+        run: |
+          trivy image --compliance docker-cis --report summary ${{ env.IMAGE_NAME }}
+
+      - name: Scan de compliance CIS Docker (JSON complet)
+        run: |
+          trivy image \
+            --compliance docker-cis \
+            --report all \
+            --format json \
+            --output compliance-cis-report.json \
+            ${{ env.IMAGE_NAME }}
+
+      # ------------------------------------------------------------------
+      # 7. SCA - AUDIT DES DÉPENDANCES NPM
+      # ------------------------------------------------------------------
+      - name: SCA - Audit des dépendances npm (lisible dans les logs)
         run: npm audit --audit-level=high || true
+        # || true : mode "reporting only" en phase de découverte (même logique que Trivy ci-dessus)
+
+      - name: SCA - Audit des dépendances npm (JSON pour le rapport)
+        run: npm audit --json > npm-audit-report.json || true
+
+      # ------------------------------------------------------------------
+      # 8. PUBLICATION DES RAPPORTS (artifacts téléchargeables)
+      # ------------------------------------------------------------------
+      - name: Upload des rapports de sécurité et de compliance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-and-compliance-reports
+          path: |
+            trivy-report.json
+            trivy-results.sarif
+            compliance-cis-report.json
+            npm-audit-report.json
+          retention-days: 30
