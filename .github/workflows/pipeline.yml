@@ -95,7 +95,7 @@ jobs:
       - name: Scan de compliance CIS Docker (JSON complet)
         run: |
           trivy image \
-            --compliance docker-cis \
+            --compliance docker-cis-1.6.0 \
             --report all \
             --format json \
             --output compliance-cis-report.json \
