@@ -87,6 +87,36 @@ jobs:
           sarif_file: trivy-results.sarif
 
       # ------------------------------------------------------------------
+      # DÉMARRAGE DE L'APPLICATION POUR ZAP
+      # ------------------------------------------------------------------
+      - name: Démarrer Juice Shop
+        run: |
+          docker run -d \
+            --name juice-shop \
+            -p 3000:3000 \
+            juice-shop:latest
+      
+      - name: Vérifier que l'application est disponible
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:3000 > /dev/null 2>&1; then
+              echo "Juice Shop est disponible"
+              exit 0
+            fi
+            echo "En attente de Juice Shop..."
+            sleep 2
+          done
+          echo "L'application n'est pas disponible"
+          exit 1
+
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: 'http://localhost:3000'
+          artifact_name: 'zap-report'
+
+      
+      # ------------------------------------------------------------------
       # 5. SCAN DE VULNÉRABILITÉS (JSON brut, pour le rapport de compliance)
       # ------------------------------------------------------------------
       - name: Scan de vulnérabilités (JSON)
@@ -139,4 +169,7 @@ jobs:
             trivy-results.sarif
             compliance-cis-report.json
             npm-audit-report.json
+            report_html.html
+            report_json.json
+            report_md.md
           retention-days: 30
