@@ -44,7 +44,6 @@ jobs:
             --source . \
             --no-git \
             --verbose \
-            --redact \
             --exit-code 0 \
             --report-format json \
             --report-path gitleaks-report.json
