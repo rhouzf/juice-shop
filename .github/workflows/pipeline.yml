@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  issues: write
 
 env:
   TRIVY_VERSION: "v0.69.3"          # Version épinglée suite à l'incident de sécurité
