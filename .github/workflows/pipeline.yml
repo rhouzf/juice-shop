@@ -134,6 +134,7 @@ jobs:
         with:
           name: security-and-compliance-reports
           path: |
+            gitleaks-report.json
             trivy-report.json
             trivy-results.sarif
             compliance-cis-report.json
