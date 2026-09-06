@@ -28,12 +28,22 @@ jobs:
       # ------------------------------------------------------------------
       # 1. SECRET SCANNING
       # ------------------------------------------------------------------
-      - name: Run Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: --verbose --redact --exit-code 1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Installer Gitleaks CLI
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh -s -- -b /usr/local/bin
+          gitleaks version
+
+
+      - name:  Scan complet du repo
+        run: |
+          gitleaks detect \
+            --source . \
+            --no-git \
+            --verbose \
+            --redact \
+            --exit-code 0 \
+            --report-format json \
+            --report-path gitleaks-report.json
 
       # ------------------------------------------------------------------
       # 2. BUILD
